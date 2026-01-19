@@ -1,0 +1,13 @@
+metric,value
+number_of_parks,38.0
+mean_bins_per_park,8.736842105263158
+median_bins_per_park,9.5
+min_bins_per_park,1.0
+max_bins_per_park,23.0
+,
+0 bins,0
+1-2 bins,11
+3-5 bins,4
+6-10 bins,6
+11-15 bins,15
+16+ bins,2
