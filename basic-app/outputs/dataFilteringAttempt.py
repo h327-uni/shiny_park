@@ -1,6 +1,8 @@
 import pandas as pd
 import geopandas as gpd
 import folium
+from folium.plugins import MarkerCluster
+
 
 
 raw_data = pd.read_csv("~/OneDrive/Documents/SRS/parks_cleaned_dups_removed_final.csv")
@@ -180,3 +182,32 @@ base_map.get_root().html.add_child(folium.Element(legend_html))
 
 base_map.save('basic-app/outputs/parks_bin_map.html')
 
+
+
+# Interactive Map
+
+m = folium.Map(location=[center_lat, center_lon], zoom_start=12)
+marker_cluster = MarkerCluster().add_to(m)
+
+# Before the loop
+raw_data['has_recycling'] = raw_data['key_features'].str.contains('recycling', case=False, na=False)
+
+# Then in your loop
+for idx, row in raw_data.iterrows():
+    recycling_text = "Yes" if row['has_recycling'] else "No"
+    
+    popup_html = f"""
+    <div style="font-family: Arial; font-size: 12px;">
+        <b>Park:</b> {row['park_name']}<br>
+        <b>Features:</b> {row['key_features']}<br>
+        <b>Recycling:</b> {recycling_text}
+    </div>
+    """
+
+    folium.Marker(
+        location=[row['lat'], row['lon']],
+        popup=folium.Popup(popup_html, max_width=300),
+        icon=folium.Icon(color=icon_color, icon="trash")
+    ).add_to(marker_cluster)
+
+m.save('basic-app\outputs\interactive_bin_map.html')
