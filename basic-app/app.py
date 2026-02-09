@@ -1,25 +1,37 @@
 from shiny import App, ui, reactive, render
+from shinywidgets import output_widget, render_widget
 import pandas as pd
-import folium
-from folium.plugins import MarkerCluster
+from ipyleaflet import Map, Marker, MarkerCluster
 import plotly.graph_objects as go
-from shinywidgets import render_widget
+from ipywidgets import HTML
 
-# Load your data
-df = pd.read_csv('basic-app\data\parks_cleaned_dups_removed_final.csv')
-park_descriptions = pd.read_csv('basic-app\data\park_descriptions.csv')
+
+# ----------------------------
+# Load data
+# ----------------------------
+df = pd.read_csv(
+    "https://raw.githubusercontent.com/h327-uni/shiny_park/main/basic-app/data/parks_cleaned_dups_removed_final.csv"
+)
+
+df = df.dropna(subset=["lat", "lon"])
+
+park_descriptions = pd.read_csv(
+    "https://raw.githubusercontent.com/h327-uni/shiny_park/main/basic-app/data/park_descriptions.csv"
+)
 
 park_descriptions["Park Name:"] = (
     park_descriptions["Park Name:"].str.strip()
 )
-
 
 # Create filter columns
 df['has_recycling'] = df['key_features'].str.contains('recycling', case=False, na=False)
 df['has_dog_waste'] = df['key_features'].str.contains('dog', case=False, na=False)
 df['general_waste_only'] = ~df['key_features'].str.contains('recycling', case=False, na=False)
 
+
+# ----------------------------
 # UI
+# ----------------------------
 app_ui = ui.page_sidebar(
     ui.sidebar(
         ui.p("Explore bin distribution across Auckland parks using VGI data."),
@@ -44,7 +56,7 @@ app_ui = ui.page_sidebar(
     
     ui.row(
         ui.column(7, 
-            ui.output_ui("bin_map")
+            output_widget("bin_map")
         ),
         ui.column(5,
             ui.output_ui("stats_box"),
@@ -56,8 +68,35 @@ app_ui = ui.page_sidebar(
     )
 )
 
+# ----------------------------
+# Server
+# ----------------------------
+
+
 def server(input, output, session):
-    
+
+    m = Map(
+        center=(-36.8509, 174.7645),
+        zoom=11,
+        scroll_wheel_zoom=True
+    )
+
+    markers = []
+
+    for _, row in df.iterrows():
+        marker = Marker(
+            location=(row.lat, row.lon)
+        )
+        markers.append(marker)
+
+    cluster = MarkerCluster(markers=markers)
+    m.add_layer(cluster)
+
+    @render_widget
+    def map():
+        return m
+
+
     @reactive.calc
     def filtered_data():
         data = pd.DataFrame()
@@ -122,52 +161,23 @@ def server(input, output, session):
                 ui.p(f"Bins with dog waste bags: {dog_bins}"),
                 style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 10px;"
             )
-        
-    @render.ui
-    def bin_map():
-        data = filtered_data()
-        selected = input.selected_park()
-        
-        # Determine map center and zoom based on selection
-        if selected == "All Parks":
-            center_lat = -36.8485
-            center_lon = 174.7633
-            zoom = 12
-        else:
-            # Calculate centroid of selected park's bins
-            park_data = data[data['park_name'] == selected]
-            if len(park_data) > 0:
-                center_lat = park_data['lat'].mean()
-                center_lon = park_data['lon'].mean()
-                zoom = 16  # Closer zoom for individual park
-            else:
-                # Fallback if park has no bins matching filters
-                center_lat = -36.8485
-                center_lon = 174.7633
-                zoom = 12
-        
-        m = folium.Map(location=[center_lat, center_lon], zoom_start=zoom)
-        marker_cluster = MarkerCluster().add_to(m)
-        
-        for idx, row in data.iterrows():
-            recycling_text = "Yes" if row['has_recycling'] else "No"
-            
-            popup_html = f"""
-            <div style="font-family: Arial; font-size: 12px;">
-                <b>Park:</b> {row['park_name']}<br>
-                <b>Features:</b> {str(row['key_features']).capitalize()}<br>
-                <b>Recycling:</b> {recycling_text}
-            </div>
-            """
 
-            folium.Marker(
-                location=[row['lat'], row['lon']],
-                popup=folium.Popup(popup_html, max_width=300),
-                icon=folium.Icon(color='green', icon="trash")
-            ).add_to(marker_cluster)
-        
-        return ui.HTML(m._repr_html_())
-    
+    @render_widget
+    def bin_map():
+        return m
+
+    @reactive.effect
+    def _():
+        park = input.selected_park()
+
+        if park == "All Parks":
+            m.center = (-36.8509, 174.7645)
+            m.zoom = 11
+            return
+
+        park_row = df[df["park_name"] == park].iloc[0]
+        m.center = (park_row.lat, park_row.lon)
+        m.zoom = 15
 
     @render.ui
     def park_description():
@@ -239,15 +249,14 @@ def server(input, output, session):
     def histogram_box():
         data = filtered_data()
         selected = input.selected_park()
-        print(selected)
         
         if selected == "All Parks":
             bins_per_park = data.groupby('park_name').size()
             
             categories = pd.cut(
                 bins_per_park,
-                bins=[1, 3, 6, 9, 11, float('inf')],
-                labels=['1-2 bins', '3-5 bins', '6-8 bins', '9-10 bins', '11+ bins'],
+                bins=[1, 3, 6, 10, 14, float('inf')],
+                labels=['1-2 bins', '3-5 bins', '6-9 bins', '10-13 bins', '14+ bins'],
                 right=False
             )
             
@@ -284,7 +293,7 @@ def server(input, output, session):
         avg_dog_waste = df['has_dog_waste'].sum() / total_parks
         
         fig = go.Figure(data=[
-            go.Bar(name='This Park', 
+            go.Bar(name=f'{selected}', 
                 x=['Recycling', 'General', 'Dog Waste'], 
                 y=[park_recycling, park_general, park_dog_waste],
                 marker_color='steelblue'),
@@ -304,4 +313,9 @@ def server(input, output, session):
         
         return ui.HTML(fig.to_html(include_plotlyjs="cdn", full_html=False))
 
+
+
+# ----------------------------
+# App
+# ----------------------------
 app = App(app_ui, server)
