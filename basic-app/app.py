@@ -14,6 +14,8 @@ df = pd.read_csv(
 )
 
 df = df.dropna(subset=["lat", "lon"])
+print("Columns:", df.columns.tolist())
+
 
 park_descriptions = pd.read_csv(
     "https://raw.githubusercontent.com/h327-uni/shiny_park/main/basic-app/data/park_descriptions.csv"
@@ -45,6 +47,10 @@ app_ui = ui.page_sidebar(
         ui.input_checkbox("show_recycling", "Recycling", value=True),
         ui.input_checkbox("show_dog_waste", "Dog Waste Bags", value=True),
         ui.input_checkbox("show_general_waste", "General Waste Only", value=True),
+    
+
+        ui.h5("------------------------"),
+        ui.input_checkbox("near_road_only", "Only bins within 100m of roads", value=False),
     ),
 
     ui.row(
@@ -100,26 +106,32 @@ def server(input, output, session):
     @reactive.calc
     def filtered_data():
         data = pd.DataFrame()
-        
+
         if input.show_recycling():
             recycling_bins = df[df['has_recycling']]
             data = pd.concat([data, recycling_bins])
 
-        if input.show_general_waste(): 
+        if input.show_general_waste():
             general_bins = df[df['general_waste_only']]
             data = pd.concat([data, general_bins])
-        
+
         if input.show_dog_waste():
             dog_bins = df[df['has_dog_waste']]
             data = pd.concat([data, dog_bins])
-        
+
         data = data.drop_duplicates()
+
+        if input.near_road_only():
+            data = data[data["near_road_100m"]]
+
         return data
+
         
     @render.ui
     def stats_box():
         data = filtered_data()
         selected = input.selected_park()
+
 
         if selected == 'All Parks':
             total_bins = len(data)
@@ -132,6 +144,8 @@ def server(input, output, session):
                 min_bins = bins_per_park.min()
                 max_bins = bins_per_park.max()
                 recycling_bins = int(data['has_recycling'].sum())
+                near_road_count = int(data["near_road_100m"].sum())
+                near_road_percent = (near_road_count / len(data)) * 100 if len(data) > 0 else 0
             else:
                 avg_bins = 0
                 min_bins = 0
@@ -146,6 +160,10 @@ def server(input, output, session):
                 ui.p(f"Min Bins/Park: {min_bins}"),
                 ui.p(f"Max Bins/Park: {max_bins}"),
                 ui.p(f"Bins with Recycling: {recycling_bins}"),
+                ui.p(
+                    f"Bins within 100m of roads: {near_road_count} "
+                    f"({near_road_percent:.1f}%)"
+                ),                
                 style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 10px;"
             )
         else:
@@ -153,6 +171,7 @@ def server(input, output, session):
             total_bins = len(park_data)
             recycling_bins = int(park_data['has_recycling'].sum())
             dog_bins = int(park_data['has_dog_waste'].sum())
+
 
             return ui.div(
                 ui.h4(f"{selected}"),
@@ -319,7 +338,3 @@ def server(input, output, session):
 # App
 # ----------------------------
 app = App(app_ui, server)
-
-
-
-#TEST TO SEE COMMIT/PUSH PULL 11/02/2026
