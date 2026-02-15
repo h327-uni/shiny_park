@@ -90,13 +90,34 @@ def server(input, output, session):
     markers = []
 
     for _, row in df.iterrows():
-        marker = Marker(
-            location=(row.lat, row.lon)
+
+        recycling_text = "Yes ♻" if row["has_recycling"] else "No"
+
+        features = str(row['key_features']).capitalize()
+        park_name = str(row['park_name'])
+
+        popup_html = HTML(
+            value=f"""
+            <div style="width: 220px;">
+                <strong>{park_name}</strong><br>
+                <hr style="margin: 4px 6px;">
+                <b>Recycling:</b> {recycling_text}<br>
+                <b>Features:</b> {features}
+            </div>
+            """
         )
+
+
+        marker = Marker(
+            location=(row.lat, row.lon),
+            popup=popup_html
+        )
+
         markers.append(marker)
 
     cluster = MarkerCluster(markers=markers)
     m.add_layer(cluster)
+
 
     @render_widget
     def map():
