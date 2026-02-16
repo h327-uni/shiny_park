@@ -14,7 +14,6 @@ df = pd.read_csv(
 )
 
 df = df.dropna(subset=["lat", "lon"])
-print(df[["lat", "lon"]].head())
 
 
 park_descriptions = pd.read_csv(
@@ -81,111 +80,109 @@ app_ui = ui.page_sidebar(
 
 def server(input, output, session):
 
+    # --- Create ONE map widget (never recreate it) ---
     m = Map(
-    center=(-36.8509, 174.7645),
-    zoom=11,
-    scroll_wheel_zoom=True
-)
-    print('Printed map (?)')
+        center=(-36.8509, 174.7645),
+        zoom=11,
+        scroll_wheel_zoom=True
+    )
 
-    cluster = MarkerCluster()
+    cluster = MarkerCluster(markers=[])
     m.add_layer(cluster)
 
+    # --- Prebuild ALL marker widgets ONCE (huge crash reduction) ---
+    # Use df.index -> marker mapping so filtering is just selecting markers
+    marker_by_idx = {}
+
+    for idx, row in df.iterrows():
+        recycling_text = "Yes" if row["has_recycling"] else "No"
+        general_text = "Yes" if row["general_waste_only"] else "No"
+        dog_text = "Yes" if row["has_dog_waste"] else "No"
+        road_text = "Near road" if row.get("near_road_100m", False) else "Not near road"
+
+        popup_html = HTML(
+            value=f"""
+            <div style="width: 230px; font-size: 13px;">
+                <strong style="font-size: 15px;">{row['park_name']}</strong>
+                <hr style="margin: 6px 0;">
+                <b>Recycling:</b> {recycling_text}<br>
+                <b>General Waste:</b> {general_text}<br>
+                <b>Dog Waste:</b> {dog_text}<br>
+                <b>Road Proximity:</b> {road_text}<br>
+                <hr style="margin: 6px 0;">
+                <b>Key Features:</b><br>
+                {str(row['key_features']).capitalize()}
+            </div>
+            """
+        )
+
+        marker_by_idx[idx] = Marker(
+            location=(float(row["lat"]), float(row["lon"])),
+            popup=popup_html
+        )
+
+    @reactive.calc
+    def filtered_idx():
+        # Build a boolean mask; return the df indices to show
+        waste_mask = pd.Series(False, index=df.index)
+
+        if input.show_recycling():
+            waste_mask |= df["has_recycling"]
+        if input.show_general_waste():
+            waste_mask |= df["general_waste_only"]
+        if input.show_dog_waste():
+            waste_mask |= df["has_dog_waste"]
+
+        # none selected => show nothing
+        if not (input.show_recycling() or input.show_general_waste() or input.show_dog_waste()):
+            idx = df.index[:0]
+        else:
+            idx = df.index[waste_mask]
+
+        if input.near_road_only():
+            idx = idx[df.loc[idx, "near_road_100m"]]
+
+        park = input.selected_park()
+        if park != "All Parks":
+            idx = idx[df.loc[idx, "park_name"] == park]
+
+        return idx
 
 
     @reactive.calc
     def filtered_data():
+        idx = filtered_idx()
+        # idx is an Index of labels; use .loc (label-based), not [].
+        return df.loc[idx].copy()
 
-        data = df.copy()
 
-        waste_mask = pd.Series(False, index=df.index)
+    # --- Update cluster markers reactively (cheap, stable) ---
+    @reactive.effect
+    def _update_cluster():
+        idx = filtered_idx()
+        cluster.markers = [marker_by_idx[i] for i in idx]
 
-        if input.show_recycling():
-            waste_mask = waste_mask | df["has_recycling"]
+    # --- Keep map centering separate (also stable) ---
+    @reactive.effect
+    def _center_map():
+        park = input.selected_park()
 
-        if input.show_general_waste():
-            waste_mask = waste_mask | df["general_waste_only"]
+        if park == "All Parks":
+            m.center = (-36.8509, 174.7645)
+            m.zoom = 11
+            return
 
-        if input.show_dog_waste():
-            waste_mask = waste_mask | df["has_dog_waste"]
+        # center using ALL bins in that park (not just filtered) to avoid "empty park" weirdness
+        park_rows = df[df["park_name"] == park]
+        if park_rows.empty:
+            return
 
-        # If no waste filters selected → show nothing
-        if not (
-            input.show_recycling() or
-            input.show_general_waste() or
-            input.show_dog_waste()
-        ):
-            data = df.iloc[0:0]
-        else:
-            data = df[waste_mask]
-
-        if input.near_road_only():
-            data = data[data["near_road_100m"]]
-
-        print("Filtered rows:", len(data))
-        return data
-
+        m.center = (float(park_rows["lat"].mean()), float(park_rows["lon"].mean()))
+        m.zoom = 15
 
     @render_widget
     def map():
-        data = filtered_data()
-        park = input.selected_park()
-
-        # Default view
-        center = (-36.8509, 174.7645)
-        zoom = 11
-
-        # Park zoom (centroid of bins currently visible for that park)
-        if park != "All Parks":
-            park_data = data[data["park_name"] == park]
-            if not park_data.empty:
-                center = (float(park_data["lat"].mean()), float(park_data["lon"].mean()))
-                zoom = 15
-            else:
-                # fallback if filters hide all bins in selected park
-                park_row = df[df["park_name"] == park].iloc[0]
-                center = (float(park_row.lat), float(park_row.lon))
-                zoom = 15
-
-        m = Map(center=center, zoom=zoom, scroll_wheel_zoom=True)
-
-        if data.empty:
-            return m
-
-        markers = []
-        for _, row in data.iterrows():
-            recycling_text = "Yes ♻" if row["has_recycling"] else "No"
-            general_text = "Yes 🗑" if row["general_waste_only"] else "No"
-            dog_text = "Yes 🐶" if row["has_dog_waste"] else "No"
-            road_text = "Near road" if row.get("near_road_100m", False) else "Not near road"
-
-            popup_html = HTML(
-                value=f"""
-                <div style="width: 230px; font-size: 13px;">
-                    <strong style="font-size: 15px;">{row['park_name']}</strong>
-                    <hr style="margin: 6px 0;">
-                    <b>Recycling:</b> {recycling_text}<br>
-                    <b>General Waste:</b> {general_text}<br>
-                    <b>Dog Waste:</b> {dog_text}<br>
-                    <b>Road Proximity:</b> {road_text}<br>
-                    <hr style="margin: 6px 0;">
-                    <b>Key Features:</b><br>
-                    {str(row['key_features']).capitalize()}
-                </div>
-                """
-            )
-
-            markers.append(
-                Marker(
-                    location=(float(row["lat"]), float(row["lon"])),
-                    popup=popup_html
-                )
-            )
-
-        m.add_layer(MarkerCluster(markers=markers))
         return m
-
-
         
     @render.ui
     def stats_box():
