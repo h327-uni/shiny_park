@@ -55,9 +55,9 @@ app_ui = ui.page_sidebar(
     ),
 
     ui.tags.head(
-        ui.tags.title("Auckland Parks Bins Dashboard"),
+        ui.tags.title("Auckland Parks Bin Distribution Dashboard")
     ),
-
+    
     ui.tags.style("""
 
     /* Global typography */
@@ -70,13 +70,11 @@ body {
   color: #212529;
 }
 
-/* Make headings feel more intentional */
 h1, h2, h3, h4, h5 {
   font-weight: 550;
   letter-spacing: -0.2px;
 }
 
-    /* Light grey “card” style used for stats, histogram, park description */
     .cardish {
     background: #f8f9fa;
     border-radius: 10px;
@@ -86,7 +84,6 @@ h1, h2, h3, h4, h5 {
     box-shadow: 0 1px 2px rgba(0,0,0,0.04);
     }
 
-    /* Histogram container: prevents the chart area collapsing/jumping */
     .hist-wrap {
     min-height: 340px;
     }
@@ -120,7 +117,6 @@ h1, h2, h3, h4, h5 {
     }
 
 
-    /* Force ipyleaflet to fill wrapper (keep for later) */
     .map-wrap .shiny-output-container,
     .map-wrap .shinywidgets-output,
     .map-wrap .widget-subarea,
@@ -175,7 +171,6 @@ h1, h2, h3, h4, h5 {
 
 def server(input, output, session):
 
-    # --- Create ONE map widget (never recreate it) ---
     m = Map(
         center=(-36.8509, 174.7645),
         zoom=11,
@@ -185,8 +180,6 @@ def server(input, output, session):
     cluster = MarkerCluster(markers=[])
     m.add_layer(cluster)
 
-    # --- Prebuild ALL marker widgets ONCE (huge crash reduction) ---
-    # Use df.index -> marker mapping so filtering is just selecting markers
     marker_by_idx = {}
 
     for idx, row in df.iterrows():
@@ -218,7 +211,6 @@ def server(input, output, session):
 
     @reactive.calc
     def filtered_idx():
-        # Build a boolean mask; return the df indices to show
         waste_mask = pd.Series(False, index=df.index)
 
         if input.show_recycling():
@@ -247,17 +239,14 @@ def server(input, output, session):
     @reactive.calc
     def filtered_data():
         idx = filtered_idx()
-        # idx is an Index of labels; use .loc (label-based), not [].
         return df.loc[idx].copy()
 
 
-    # --- Update cluster markers reactively (cheap, stable) ---
     @reactive.effect
     def _update_cluster():
         idx = filtered_idx()
         cluster.markers = [marker_by_idx[i] for i in idx]
 
-    # --- Keep map centering separate (also stable) ---
     @reactive.effect
     def _center_map():
         park = input.selected_park()
@@ -267,7 +256,6 @@ def server(input, output, session):
             m.zoom = 11
             return
 
-        # center using ALL bins in that park (not just filtered) to avoid "empty park" weirdness
         park_rows = df[df["park_name"] == park]
         if park_rows.empty:
             return
