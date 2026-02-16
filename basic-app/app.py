@@ -54,13 +54,36 @@ app_ui = ui.page_sidebar(
         ui.input_checkbox("near_road_only", "Only bins within 100m of roads", value=False),
     ),
 
+    ui.tags.head(
+        ui.tags.title("Auckland Parks Bins Dashboard"),
+    ),
+
     ui.tags.style("""
+
+    /* Global typography */
+:root {
+  --ui-font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif;
+}
+
+body {
+  font-family: var(--ui-font);
+  color: #212529;
+}
+
+/* Make headings feel more intentional */
+h1, h2, h3, h4, h5 {
+  font-weight: 550;
+  letter-spacing: -0.2px;
+}
+
     /* Light grey “card” style used for stats, histogram, park description */
     .cardish {
     background: #f8f9fa;
-    border-radius: 6px;
+    border-radius: 10px;
     padding: 15px;
     margin-bottom: 10px;
+    border: 1px solid rgba(0,0,0,0.06);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
     }
 
     /* Histogram container: prevents the chart area collapsing/jumping */
@@ -72,20 +95,30 @@ app_ui = ui.page_sidebar(
     width: 100%;
     }
 
-    /* Optional: card style with NO padding (useful for maps) */
-    .cardish-nopad {
-    background: #f8f9fa;
-    border-radius: 6px;
-    margin-bottom: 10px;
-    padding: 0;
-    overflow: hidden;
+
+    /* Title card (hero) */
+    .title-card {
+    background: linear-gradient(180deg, #f8f9fa 0%, #f1f3f5 100%);
+    border-radius: 10px;
+    padding: 18px 22px;
+    margin-bottom: 18px;
+    text-align: center;
+    border: 1px solid rgba(0,0,0,0.06);
     }
 
-    /* Map sizing helpers (we can tweak later) */
-    .map-wrap {
-    height: 700px !important;
-    overflow: hidden;
+    .app-title {
+    margin: 0;
+    font-size: 34px;
+    font-weight: 650;
+    letter-spacing: -0.6px;
     }
+
+    .app-subtitle {
+    margin-top: 6px;
+    font-size: 16px;
+    color: #6c757d;
+    }
+
 
     /* Force ipyleaflet to fill wrapper (keep for later) */
     .map-wrap .shiny-output-container,
@@ -105,10 +138,12 @@ app_ui = ui.page_sidebar(
 
     ui.row(
         ui.column(12,
-            ui.h1(
-                "Auckland Parks Bin Distribution Dashboard",
-                style="text-align: center; padding: 20px; background-color: #f0f0f0; margin-bottom: 20px;"
+            ui.div(
+                ui.h1("Auckland Parks Bin Distribution Dashboard", class_="app-title"),
+                ui.div("Interactive overview of bin types and placement patterns across Auckland parks.", class_="app-subtitle"),
+                class_="title-card"
             )
+
         )
     ),
 
@@ -385,11 +420,14 @@ def server(input, output, session):
 
             fig = go.Figure(data=[go.Bar(x=distribution.index.astype(str), y=distribution.values)])
             fig.update_layout(
-                title="Bin Distribution Across Parks",
+                paper_bgcolor="#f8f9fa",
+                plot_bgcolor="#f8f9fa",
+                title=dict(text="Bin Distribution Across Parks", x=0, xanchor='left',
+                font=dict(size=16, family="inherit")),
                 xaxis_title="Bins per Park",
                 yaxis_title="Number of Parks",
                 height=300,
-                margin=dict(l=40, r=40, t=40, b=40)
+                margin=dict(l=40, r=25, t=45, b=40)
             )
             return fig
 
@@ -409,11 +447,15 @@ def server(input, output, session):
             go.Bar(name="City Average", x=["Recycling", "General", "Dog Waste"], y=[avg_recycling, avg_general, avg_dog_waste]),
         ])
         fig.update_layout(
-            title=f"{selected} vs City Average",
+
+            title=dict(text=f"{selected} vs City Average", x=0, xanchor='left',
+            font=dict(size=16, family="inherit")),
             yaxis_title="Number of Bins",
+            paper_bgcolor="#f8f9fa",
+            plot_bgcolor="#f8f9fa",
             barmode="group",
             height=300,
-            margin=dict(l=40, r=40, t=40, b=40)
+            margin=dict(l=40, r=25, t=45, b=40)
         )
         return fig
 
