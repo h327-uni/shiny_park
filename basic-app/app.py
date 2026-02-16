@@ -1,3 +1,4 @@
+from shinywidgets import render_plotly
 from shiny import App, ui, reactive, render
 from shinywidgets import output_widget, render_widget
 import pandas as pd
@@ -38,40 +39,99 @@ app_ui = ui.page_sidebar(
         ui.p("Explore bin distribution across Auckland parks using VGI data."),
 
         ui.h5("Select Park:"),
-            ui.input_select("selected_park", "", 
-                choices=["All Parks"] + sorted(df['park_name'].unique().tolist())),
-   
-        
+        ui.input_select(
+            "selected_park", "",
+            choices=["All Parks"] + sorted(df["park_name"].unique().tolist()),
+            selected="All Parks",
+        ),
+
         ui.h5("Filter Bins:"),
         ui.input_checkbox("show_recycling", "Recycling", value=True),
         ui.input_checkbox("show_dog_waste", "Dog Waste Bags", value=True),
         ui.input_checkbox("show_general_waste", "General Waste Only", value=True),
-    
 
         ui.h5("------------------------"),
         ui.input_checkbox("near_road_only", "Only bins within 100m of roads", value=False),
     ),
 
+    ui.tags.style("""
+    /* Light grey “card” style used for stats, histogram, park description */
+    .cardish {
+    background: #f8f9fa;
+    border-radius: 6px;
+    padding: 15px;
+    margin-bottom: 10px;
+    }
+
+    /* Histogram container: prevents the chart area collapsing/jumping */
+    .hist-wrap {
+    min-height: 340px;
+    }
+
+    .hist-wrap > div {
+    width: 100%;
+    }
+
+    /* Optional: card style with NO padding (useful for maps) */
+    .cardish-nopad {
+    background: #f8f9fa;
+    border-radius: 6px;
+    margin-bottom: 10px;
+    padding: 0;
+    overflow: hidden;
+    }
+
+    /* Map sizing helpers (we can tweak later) */
+    .map-wrap {
+    height: 700px !important;
+    overflow: hidden;
+    }
+
+    /* Force ipyleaflet to fill wrapper (keep for later) */
+    .map-wrap .shiny-output-container,
+    .map-wrap .shinywidgets-output,
+    .map-wrap .widget-subarea,
+    .map-wrap .jupyter-widgets,
+    .map-wrap .jupyter-widget,
+    .map-wrap .widget-container,
+    .map-wrap .leaflet,
+    .map-wrap .leaflet-container {
+    height: 100% !important;
+    width: 100% !important;
+    min-height: 100% !important;
+    }
+    """),
+
+
     ui.row(
         ui.column(12,
-        ui.h1('Auckland Parks Bin Distribution Dashboard',
-            style='text-align: center; padding: 20px; background-color: #f0f0f0; margin-bottom: 20px;')
+            ui.h1(
+                "Auckland Parks Bin Distribution Dashboard",
+                style="text-align: center; padding: 20px; background-color: #f0f0f0; margin-bottom: 20px;"
+            )
         )
     ),
-    
+
     ui.row(
-        ui.column(7, 
-            output_widget("map")
+        ui.column(
+            7,
+            ui.div(output_widget("map"), class_="map-wrap")  
         ),
-        ui.column(5,
-            ui.output_ui("stats_box"),
-            ui.output_ui("histogram_box")
+        ui.column(
+            5,
+            ui.div(ui.output_ui("stats_box"), class_="cardish"),
+            ui.div(output_widget("histogram_box"), class_="cardish hist-wrap"),
         )
     ),
+
     ui.row(
-        ui.column(12, ui.output_ui("park_description"))
+        ui.column(
+            12,
+            ui.div(ui.output_ui("park_description"), class_="cardish")
+        )
     )
 )
+
 
 # ----------------------------
 # Server
@@ -306,32 +366,24 @@ def server(input, output, session):
         )
 
 
-    
-    @render.ui
+    @render_plotly
     def histogram_box():
         data = filtered_data()
         selected = input.selected_park()
-        
+
         if selected == "All Parks":
-            bins_per_park = data.groupby('park_name').size()
-            
+            bins_per_park = data.groupby("park_name").size()
+
             categories = pd.cut(
                 bins_per_park,
-                bins=[1, 3, 6, 10, 14, float('inf')],
-                labels=['1-2 bins', '3-5 bins', '6-9 bins', '10-13 bins', '14+ bins'],
+                bins=[1, 3, 6, 10, 14, float("inf")],
+                labels=["1-2 bins", "3-5 bins", "6-9 bins", "10-13 bins", "14+ bins"],
                 right=False
             )
-            
+
             distribution = categories.value_counts().sort_index()
-            
-            fig = go.Figure(data=[
-                go.Bar(
-                    x=distribution.index.astype(str),
-                    y=distribution.values,
-                    marker_color='steelblue'
-                )
-            ])
-            
+
+            fig = go.Figure(data=[go.Bar(x=distribution.index.astype(str), y=distribution.values)])
             fig.update_layout(
                 title="Bin Distribution Across Parks",
                 xaxis_title="Bins per Park",
@@ -339,41 +391,31 @@ def server(input, output, session):
                 height=300,
                 margin=dict(l=40, r=40, t=40, b=40)
             )
-            
-            return ui.HTML(fig.to_html(include_plotlyjs="cdn", full_html=False))
-        
-        # Park-level comparison (if not "All Parks")
-        park_data = data[data['park_name'] == selected]
-        
-        park_recycling = int(park_data['has_recycling'].sum())
-        park_general = int(park_data['general_waste_only'].sum())
-        park_dog_waste = int(park_data['has_dog_waste'].sum())
-        
-        total_parks = df['park_name'].nunique()
-        avg_recycling = df['has_recycling'].sum() / total_parks
-        avg_general = df['general_waste_only'].sum() / total_parks
-        avg_dog_waste = df['has_dog_waste'].sum() / total_parks
-        
+            return fig
+
+        # Park-level comparison
+        park_data = data[data["park_name"] == selected]
+        park_recycling = int(park_data["has_recycling"].sum())
+        park_general = int(park_data["general_waste_only"].sum())
+        park_dog_waste = int(park_data["has_dog_waste"].sum())
+
+        total_parks = df["park_name"].nunique()
+        avg_recycling = df["has_recycling"].sum() / total_parks
+        avg_general = df["general_waste_only"].sum() / total_parks
+        avg_dog_waste = df["has_dog_waste"].sum() / total_parks
+
         fig = go.Figure(data=[
-            go.Bar(name=f'{selected}', 
-                x=['Recycling', 'General', 'Dog Waste'], 
-                y=[park_recycling, park_general, park_dog_waste],
-                marker_color='steelblue'),
-            go.Bar(name='City Average', 
-                x=['Recycling', 'General', 'Dog Waste'], 
-                y=[avg_recycling, avg_general, avg_dog_waste],
-                marker_color='lightgray')
+            go.Bar(name=f"{selected}", x=["Recycling", "General", "Dog Waste"], y=[park_recycling, park_general, park_dog_waste]),
+            go.Bar(name="City Average", x=["Recycling", "General", "Dog Waste"], y=[avg_recycling, avg_general, avg_dog_waste]),
         ])
-        
         fig.update_layout(
             title=f"{selected} vs City Average",
             yaxis_title="Number of Bins",
-            barmode='group',
+            barmode="group",
             height=300,
             margin=dict(l=40, r=40, t=40, b=40)
         )
-        
-        return ui.HTML(fig.to_html(include_plotlyjs="cdn", full_html=False))
+        return fig
 
 
 
