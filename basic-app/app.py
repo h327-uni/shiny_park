@@ -353,7 +353,6 @@ def server(input, output, session):
 
         accessibility = ""
         if "Accessibility" in park_descriptions.columns:
-            print('hello it is here')
             accessibility = str(row.get("Accessibility", "")).strip()
 
         # bins in park (all bins)
@@ -396,7 +395,6 @@ def server(input, output, session):
 
         accessibility_ui = ui.div()
         if accessibility:
-            print('yes')
             accessibility_ui = ui.div(
                 ui.strong("Accessibility: "),
                 ui.span(accessibility),
