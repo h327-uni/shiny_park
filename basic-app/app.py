@@ -131,7 +131,6 @@ h1, h2, h3, h4, h5 {
     }
     """),
 
-
     ui.row(
         ui.column(12,
             ui.div(
@@ -142,6 +141,32 @@ h1, h2, h3, h4, h5 {
 
         )
     ),
+
+        ui.row(
+    ui.column(
+        12,
+        ui.div(
+            ui.tags.details(
+                ui.tags.summary("About this dashboard:"),
+                ui.div(
+                    ui.p(
+                        "This dashboard helps explore how public bins are distributed across Auckland parks. Data was gathered using mechanisms of volunteered geographic information (VGI), to demonstrate the capacity for individuals to contribute to the understanding of their local areas. Due the lack of publically accessible bin data, this dashboard fills an important niche, demonstrating the potential of VGI to support individual-level decision making and community-level analysis."
+                    ),
+                    ui.h5("How to use"),
+                    ui.tags.ul(
+                        ui.tags.li("Select a park from the dropdown to zoom in."),
+                        ui.tags.li("Use the checkboxes to filter bin types."),
+                        ui.tags.li("Toggle “Only bins within 100m of roads” to focus on likely accessible bins."),
+                        ui.tags.li("Click clusters to zoom; click markers for details."),
+                        ui.tags.li("Scroll down to view brief summary of the selected park (note: current version of this dashboard does not support the summary of each possible park.")
+                    ),
+                    style="margin-top: 10px;"
+                )
+            ),
+            class_="cardish"
+        )
+    )
+),
 
     ui.row(
         ui.column(
