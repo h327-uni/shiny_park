@@ -150,7 +150,7 @@ h1, h2, h3, h4, h5 {
                 ui.tags.summary("About this dashboard:"),
                 ui.div(
                     ui.p(
-                        "This dashboard helps explore how public bins are distributed across Auckland parks. Data was gathered using mechanisms of volunteered geographic information (VGI), to demonstrate the capacity for individuals to contribute to the understanding of their local areas. Due the lack of publically accessible bin data, this dashboard fills an important niche, demonstrating the potential of VGI to support individual-level decision making and community-level analysis."
+                        "This dashboard helps explore how public bins are distributed across Auckland parks. Data was gathered using mechanisms of volunteered geographic information (VGI), which demonstrates the capacity for individuals to contribute to the understanding of their local areas. Due the lack of publically accessible bin data, this dashboard fills an important niche, demonstrating the potential of VGI to support individual-level decision making and community-level analysis."
                     ),
                     ui.h5("How to use"),
                     ui.tags.ul(
