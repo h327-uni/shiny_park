@@ -328,63 +328,94 @@ def server(input, output, session):
     def park_description():
         selected = input.selected_park()
 
-        # Default message
         fallback = ui.div(
             "Further park details coming soon...",
             style="padding: 15px; background-color: #f8f9fa; margin-top: 10px;"
         )
 
         if selected == "All Parks":
-            return 'Select a park from the dropdown to view further details. Parks with descriptions currently loaded: Auckland Domain, Maungakiekie/One Tree Hill, Maungawhau/Mount Eden and Onepoto Domain.'
+            return ui.div(
+                "Select a park from the dropdown to view further details.",
+                style="padding: 15px; background-color: #f8f9fa; margin-top: 10px;"
+            )
 
-        match = park_descriptions[
-            park_descriptions["Park Name:"] == selected
-        ]
-
+        match = park_descriptions[park_descriptions["Park Name:"] == selected]
         if match.empty:
             return fallback
 
         row = match.iloc[0]
 
-        park_name = row["Park Name:"]
-        size = row["Size"]
-        description = row["Description"]
-        source = row["Source"]
+        # --- Define everything up-front (no undefined names later) ---
+        park_name = str(row["Park Name:"])
+        size = row.get("Size", None)
+        description = str(row.get("Description", "")).strip()
+        source = str(row.get("Source", "")).strip()
 
-        # Split description into paragraphs
-        paragraphs = [
-            ui.p(p.strip())
-            for p in description.split("\n\n")
-            if p.strip()
-        ]
+        accessibility = ""
+        if "Accessibility" in park_descriptions.columns:
+            print('hello it is here')
+            accessibility = str(row.get("Accessibility", "")).strip()
 
-        # Source footer (linked if URL)
-        source_ui = (
-            ui.a(source, href=source, target="_blank")
-            if source.startswith("http")
-            else source
+        # bins in park (all bins)
+        bins_in_park = int((df["park_name"] == selected).sum())
+
+        # format size + density safely
+        size_text = ""
+        density_text = ""
+        try:
+            if size is not None:
+                size_val = float(size)
+                size_text = f"Size: {size_val:.1f} ha"
+                if size_val > 0:
+                    density_text = f"Bin density: {bins_in_park/size_val:.2f} / ha"
+        except Exception:
+            # if size isn't numeric, just show it raw
+            size_text = f"Size: {size} ha"
+
+        # paragraphs
+        paragraphs = [ui.p(p.strip()) for p in description.split("\n\n") if p.strip()]
+
+        # source link
+        source_ui = ui.a(source, href=source, target="_blank") if source.startswith("http") else source
+
+        # --- Build UI pieces (only using already-defined variables) ---
+        right_bits = []
+        if size_text:
+            right_bits.append(ui.div(size_text))
+        if density_text:
+            right_bits.append(ui.div(density_text))
+
+        header_ui = ui.div(
+            ui.strong(park_name),
+            ui.div(
+                *right_bits,
+                style="float:right; text-align:right; color:#6c757d; font-size:0.95em;"
+            ),
+            style="font-size: 1.15em; margin-bottom: 10px; overflow:auto;"
         )
 
+        accessibility_ui = ui.div()
+        if accessibility:
+            print('yes')
+            accessibility_ui = ui.div(
+                ui.strong("Accessibility: "),
+                ui.span(accessibility),
+                style="margin-top: 10px; color: #495057;"
+            )
+
+        footer_ui = ui.div(
+            ui.span("Adapted from "),
+            source_ui,
+            style="font-size: 0.85em; color: #6c757d;"
+        )
+
+        # --- Return final UI ---
         return ui.div(
-            # Header row
-            ui.div(
-                ui.strong(park_name),
-                ui.span(f"Size: {size:.1f} ha", style="float: right;"),
-                style="font-size: 1.1em; margin-bottom: 10px;"
-            ),
-
-            # Description paragraphs
+            header_ui,
             *paragraphs,
-
+            accessibility_ui,
             ui.hr(),
-
-            # Source footer
-            ui.div(
-                ui.span("Adapted from "),
-                source_ui,
-                style="font-size: 0.85em; color: #6c757d;"
-            ),
-
+            footer_ui,
             style="padding: 15px; background-color: #f8f9fa; margin-top: 10px;"
         )
 
