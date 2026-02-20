@@ -1,1 +1,1 @@
-# shiny_park
+This app demonstrates the potential for VGI data to tell us more about the world around us. It explores a case study of bin placements within selected Auckland parks, and the dashboard provides a base-level of analysis of the provided raw data. Users should note the potential risks associated with VGI data - locations may be imprecise, and descriptions may be misleading. Treat this dashboard as a proof-of-concept, rather than a factual presentation of the world around us. 
