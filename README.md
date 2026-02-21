@@ -2,5 +2,5 @@ This app demonstrates the potential for VGI data to tell us more about the world
 
 The dashboard can be useful for both local community members and those wanting to further explore the potential of VGI and immense value associated with effective data visualisation. Local-orientated data, gathered by those who directly care about the environments being represented, will always have unique benefits compared to outsourcing, which is one of the core strengths of VGI. It is hoped that this dashboard will both demonstrate that capacity, while also providing those involved with its construction valuable experience into the world of VGI and data visualisation. 
 
-To view the specifics on the dashboard's mechanism, select the 'About this dashboard:' dropdown. To initiate this app, simply follow the relevant link:
+To view the specifics on the dashboard's mechanism, select the 'About this dashboard:' dropdown. To initiate this app, follow the relevant link:
 https://h327-uni.github.io/shiny_park/
